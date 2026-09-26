@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>QuickSpend // 1-Tap Widget</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            surface: {
+              900: '#0c0f17',
+              800: '#141824',
+              700: '#1e2438',
+              600: '#2c334d'
+            },
+            accent: {
+              emerald: '#10b981',
+              cyan: '#06b6d4',
+              purple: '#a855f7',
+              pink: '#ec4899',
+              amber: '#f59e0b'
+            }
+          },
+          animation: {
+            'pop-in': 'popIn 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+            'flash-success': 'flashSuccess 0.4s ease-out forwards',
+          },
+          keyframes: {
+            popIn: {
+              '0%': { transform: 'scale(0.92)', opacity: '0' },
+              '100%': { transform: 'scale(1)', opacity: '1' },
+            },
+            flashSuccess: {
+              '0%': { backgroundColor: 'rgba(16, 185, 129, 0.4)' },
+              '100%': { backgroundColor: 'transparent' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Prevent accidental pull-to-refresh & double-tap zooming on mobile */
+    body {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #0c0f17;
+    }
+    
+    .keypad-btn {
+      transition: all 0.08s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .keypad-btn:active {
+      transform: scale(0.93);
+      filter: brightness(1.3);
+    }
+
+    .pill-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .pill-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Glass card effect */
+    .glass-panel {
+      background: rgba(20, 24, 36, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 24px -4px rgba(6, 182, 212, 0.45);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 24px -4px rgba(16, 185, 129, 0.45);
+    }
+  </style>
+</head>
+<body class="text-slate-100 flex justify-center min-h-screen antialiased bg-[#0c0f17]">
+
+  <!-- Mobile container simulating an Android viewport -->
+  <div id="appContainer" class="w-full max-w-md h-full min-h-screen flex flex-col justify-between p-4 relative overflow-x-hidden">
+
+    <!-- Top Header & Fast Toggles -->
+    <header class="flex items-center justify-between pb-2 pt-1 border-b border-white/5">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></div>
+        <span class="font-mono text-xs uppercase tracking-widest text-slate-400 font-bold">QuickSpend // Fast-Track</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- 1-Tap Auto-Submit Toggle -->
+        <button id="autoSubmitToggle" onclick="toggleAutoSubmit()" 
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 transition-all bg-surface-800 text-slate-400"
+                title="Tapping a category will immediately save the typed amount">
+          <span id="autoSubmitStatusDot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+          <span>1-Tap Log</span>
+        </button>
+
+        <!-- Sound Toggle -->
+        <button id="soundToggleBtn" onclick="toggleAudio()" class="w-8 h-8 rounded-full bg-surface-800 flex items-center justify-center border border-white/10 text-slate-400 hover:text-white">
+          <svg id="soundIconOn" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>
+          <svg id="soundIconOff" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+        </button>
+
+        <!-- View Logs / Bottom Sheet Button -->
+        <button onclick="toggleHistorySheet(true)" class="w-8 h-8 rounded-full bg-surface-800 flex items-center justify-center border border-white/10 text-cyan-400 hover:bg-surface-700">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Chrome PWA Installation Banner (Dismissible) -->
+    <div id="pwaBanner" class="mt-2 glass-panel p-2.5 rounded-xl border border-cyan-500/20 flex items-center justify-between text-xs text-slate-300">
+      <div class="flex items-center gap-2">
+        <span class="text-base">📲</span>
+        <span>Tap <strong>⋮</strong> in Chrome &rarr; <strong>"Add to Home screen"</strong> for instant 1-tap widget speed!</span>
+      </div>
+      <button onclick="dismissPwaBanner()" class="text-slate-400 hover:text-white px-1.5 py-0.5">&times;</button>
+    </div>
+
+    <!-- Display Section: Big Numbers & Selected Category -->
+    <section id="displayCard" class="my-3 glass-panel p-4 rounded-2xl flex flex-col justify-between border border-white/10 relative transition-all duration-200">
+      
+      <!-- Top info line: Active Category Badge + Quick Note toggle -->
+      <div class="flex items-center justify-between">
+        <div id="activeCategoryBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+          <span id="activeBadgeIcon">🍱</span>
+          <span id="activeBadgeLabel">Meal</span>
+        </div>
+
+        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+          <span class="font-mono">Today:</span>
+          <span id="todayTotalSnippet" class="font-mono font-bold text-emerald-400">$0</span>
+        </div>
+      </div>
+
+      <!-- Main Numeric Readout -->
+      <div class="flex items-baseline justify-center py-4 overflow-hidden">
+        <span class="text-2xl font-mono text-slate-500 font-bold mr-1.5 select-none" id="currencyPrefix">$</span>
+        <div id="amountDisplay" class="font-mono text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_12px_rgba(255,255,255,0.15)] truncate">
+          0
+        </div>
+      </div>
+
+      <!-- Quick optional memo/note -->
+      <div class="pt-2 border-t border-white/5 flex items-center gap-2">
+        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        <input type="text" id="memoInput" placeholder="Add memo (e.g. Ramen, iced latte...)" 
+               class="bg-transparent text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none w-full font-sans">
+        <button onclick="clearMemo()" class="text-slate-600 hover:text-slate-400 text-xs px-1">&times;</button>
+      </div>
+
+      <!-- Toast Feedback Message Overlay -->
+      <div id="flashNotice" class="absolute inset-0 rounded-2xl flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
+        <div class="bg-emerald-500/90 text-slate-950 font-bold text-sm px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          <span id="flashNoticeText">Recorded!</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category Pills Section (Horizontal Scrollable on Small Screens) -->
+    <section class="mb-2">
+      <div class="flex items-center justify-between mb-1.5 px-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">Select Category</span>
+        <span id="oneTapIndicator" class="text-[10px] text-cyan-400/80 italic hidden">Instant-Log active ⚡</span>
+      </div>
+
+      <div id="categoryContainer" class="flex gap-2 overflow-x-auto pill-scroll pb-1">
+        <!-- Categories injected via JS -->
+      </div>
+    </section>
+
+    <!-- Fast Increment Quick-Add Pills (+10, +50, +100, +500) -->
+    <div class="grid grid-cols-4 gap-1.5 mb-2">
+      <button onclick="addPreset(10)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+10</button>
+      <button onclick="addPreset(50)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+50</button>
+      <button onclick="addPreset(100)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+100</button>
+      <button onclick="addPreset(500)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+500</button>
+    </div>
+
+    <!-- Main 4x3 Keypad -->
+    <section class="grid grid-cols-3 gap-2 flex-grow max-h-[300px] mb-2">
+      <button onclick="pressKey('1')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">1</button>
+      <button onclick="pressKey('2')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">2</button>
+      <button onclick="pressKey('3')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">3</button>
+
+      <button onclick="pressKey('4')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">4</button>
+      <button onclick="pressKey('5')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">5</button>
+      <button onclick="pressKey('6')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">6</button>
+
+      <button onclick="pressKey('7')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">7</button>
+      <button onclick="pressKey('8')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">8</button>
+      <button onclick="pressKey('9')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">9</button>
+
+      <button onclick="pressKey('.')" class="keypad-btn bg-surface-800/80 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-400 shadow-sm">.</button>
+      <button onclick="pressKey('0')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">0</button>
+      <button onclick="pressBackspace()" class="keypad-btn bg-surface-800/80 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-xl font-bold flex items-center justify-center text-amber-400/90 shadow-sm">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"/></svg>
+      </button>
+    </section>
+
+    <!-- Action Bar: Clear & Glow Submit -->
+    <div class="grid grid-cols-4 gap-2 pt-1 pb-2">
+      <button onclick="clearAmount()" class="keypad-btn col-span-1 bg-surface-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/10 rounded-xl font-mono text-sm font-semibold flex items-center justify-center py-3.5">
+        C
+      </button>
+
+      <button id="submitBtn" onclick="commitExpense()" 
+              class="keypad-btn col-span-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-extrabold rounded-xl py-3.5 flex items-center justify-center gap-2 glow-emerald tracking-wide">
+        <span class="text-base">⚡ RECORD</span>
+        <span id="submitAmountSnippet" class="text-sm font-mono opacity-80">($0)</span>
+      </button>
+    </div>
+
+    <!-- Bottom Sheet / Expense History Drawer (Hidden by default) -->
+    <div id="historySheet" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200 flex flex-col justify-end">
+      <div id="historyPanel" class="bg-surface-900 border-t border-white/15 rounded-t-3xl max-h-[85vh] h-full flex flex-col p-4 w-full max-w-md mx-auto transform translate-y-full transition-transform duration-300">
+        
+        <!-- Sheet Handle -->
+        <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3 cursor-pointer" onclick="toggleHistorySheet(false)"></div>
+
+        <!-- Header inside sheet -->
+        <div class="flex items-center justify-between pb-3 border-b border-white/10">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <span>Today's Log</span>
+              <span id="sheetRecordCount" class="text-xs font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">0</span>
+            </h2>
+            <p class="text-xs text-slate-400 font-mono">Total Spent: <span id="sheetTotalSpent" class="font-bold text-emerald-400">$0.00</span></p>
+          </div>
+
+          <button onclick="toggleHistorySheet(false)" class="w-8 h-8 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center">
+            &times;
+          </button>
+        </div>
+
+        <!-- Action tools: CSV Export & Google Sheet Copy -->
+        <div class="flex gap-2 py-2.5">
+          <button onclick="exportToCsv()" class="flex-1 py-1.5 px-3 bg-surface-800 hover:bg-surface-700 text-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5">
+            <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export CSV
+          </button>
+          <button onclick="copyForGoogleSheets()" class="flex-1 py-1.5 px-3 bg-surface-800 hover:bg-surface-700 text-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5">
+            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            Copy For Sheets
+          </button>
+        </div>
+
+        <!-- Scrollable List of Today's Transactions -->
+        <div id="historyList" class="flex-1 overflow-y-auto space-y-2 py-2 pr-1">
+          <!-- Transcation items inserted here -->
+        </div>
+
+        <!-- Footer inside sheet with Clear All -->
+        <div class="pt-3 border-t border-white/10 flex justify-between items-center text-xs">
+          <button onclick="clearHistoryPrompt()" class="text-rose-400 hover:text-rose-300">Clear all records</button>
+          <button onclick="toggleHistorySheet(false)" class="text-slate-400 hover:text-white">Close</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="generalToast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-700 text-white text-xs px-4 py-2 rounded-full border border-white/15 shadow-xl opacity-0 pointer-events-none transition-all duration-200 z-50">
+      Toast message
+    </div>
+
+  </div>
+
+  <script>
+    // Categories configuration
+    const CATEGORIES = [
+      { id: 'meal', label: 'Meal', icon: '🍱', color: 'cyan' },
+      { id: 'drink', label: 'Drink', icon: '☕', color: 'amber' },
+      { id: 'art', label: 'Art/Hobby', icon: '🎨', color: 'purple' },
+      { id: 'transit', label: 'Transit', icon: '🚌', color: 'emerald' },
+      { id: 'shop', label: 'Shopping', icon: '🛍️', color: 'pink' },
+      { id: 'gacha', label: 'Gacha/Game', icon: '🎮', color: 'indigo' },
+      { id: 'health', label: 'Health', icon: '💊', color: 'rose' },
+      { id: 'bills', label: 'Bills', icon: '💡', color: 'yellow' }
+    ];
+
+    // State Variables
+    let currentInput = "0";
+    let selectedCategory = CATEGORIES[0];
+    let autoSubmitMode = false;
+    let audioEnabled = true;
+    let expenses = [];
+
+    // Tone.js Sound Synthesizer for tactile feedback
+    let tapSynth = null;
+    let successSynth = null;
+
+    function initAudio() {
+      if (tapSynth || !audioEnabled) return;
+      try {
+        // Subtle soft mechanical click
+        tapSynth = new Tone.MembraneSynth({
+          pitchDecay: 0.008,
+          octaves: 2,
+          oscillator: { type: "sine" },
+          envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.01 }
+        }).toDestination();
+        tapSynth.volume.value = -12;
+
+        // Upbeat chime for successful entry
+        successSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.2 }
+        }).toDestination();
+        successSynth.volume.value = -10;
+      } catch (e) {
+        console.warn("Audio init deferred", e);
+      }
+    }
+
+    function playKeyClick() {
+      if (!audioEnabled) return;
+      try {
+        if (!tapSynth) initAudio();
+        if (Tone.context.state !== 'running') Tone.start();
+        tapSynth.triggerAttackRelease("C3", "32n");
+      } catch(e){}
+    }
+
+    function playSuccessChime() {
+      if (!audioEnabled) return;
+      try {
+        if (!successSynth) initAudio();
+        if (Tone.context.state !== 'running') Tone.start();
+        const now = Tone.now();
+        successSynth.triggerAttackRelease(["E5", "G5", "B5"], "16n", now);
+      } catch(e){}
+    }
+
+    function renderCategories() {
+      const container = document.getElementById('categoryContainer');
+      container.innerHTML = '';
+
+      CATEGORIES.forEach(cat => {
+        const isSelected = selectedCategory.id === cat.id;
+        const btn = document.createElement('button');
+        btn.onclick = () => selectCategory(cat);
+        btn.className = `flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+          isSelected 
+            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 glow-cyan scale-105' 
+            : 'bg-surface-800 text-slate-300 border-white/5 hover:border-white/20'
+        }`;
+        btn.innerHTML = `<span class="text-base">${cat.icon}</span><span>${cat.label}</span>`;
+        container.appendChild(btn);
+      });
+
+      // Update Top Active Badge
+      document.getElementById('activeBadgeIcon').innerText = selectedCategory.icon;
+      document.getElementById('activeBadgeLabel').innerText = selectedCategory.label;
+    }
+
+    function selectCategory(cat) {
+      playKeyClick();
+      selectedCategory = cat;
+      renderCategories();
+
+      // If "1-Tap Mode" is on and user typed an amount > 0, instantly record!
+      if (autoSubmitMode && parseFloat(currentInput) > 0) {
+        commitExpense();
+      }
+    }
+
+    function updateDisplay() {
+      const display = document.getElementById('amountDisplay');
+      const submitSnippet = document.getElementById('submitAmountSnippet');
+      
+      display.innerText = currentInput;
+      submitSnippet.innerText = `($${currentInput})`;
+
+      // Shrink font size if string is very long
+      if (currentInput.length > 7) {
+        display.classList.remove('text-5xl');
+        display.classList.add('text-3xl');
+      } else {
+        display.classList.remove('text-3xl');
+        display.classList.add('text-5xl');
+      }
+    }
+
+    function pressKey(key) {
+      playKeyClick();
+      
+      if (key === '.') {
+        if (currentInput.includes('.')) return;
+        currentInput += '.';
+      } else {
+        if (currentInput === "0") {
+          currentInput = key;
+        } else {
+          // Limit max 8 digits
+          if (currentInput.replace('.', '').length >= 8) return;
+          // Prevent more than 2 decimals
+          if (currentInput.includes('.') && currentInput.split('.')[1].length >= 2) return;
+          currentInput += key;
+        }
+      }
+      updateDisplay();
+    }
+
+    function pressBackspace() {
+      playKeyClick();
+      if (currentInput.length <= 1) {
+        currentInput = "0";
+      } else {
+        currentInput = currentInput.slice(0, -1);
+      }
+      updateDisplay();
+    }
+
+    function clearAmount() {
+      playKeyClick();
+      currentInput = "0";
+      updateDisplay();
+    }
+
+    function addPreset(val) {
+      playKeyClick();
+      let currentVal = parseFloat(currentInput) || 0;
+      currentVal += val;
+      currentInput = currentVal.toString();
+      updateDisplay();
+    }
+
+    function clearMemo() {
+      document.getElementById('memoInput').value = '';
+    }
+
+    function commitExpense() {
+      const amount = parseFloat(currentInput);
+      if (isNaN(amount) || amount <= 0) {
+        showToast("Enter an amount first!");
+        return;
+      }
+
+      const memo = document.getElementById('memoInput').value.trim();
+      const record = {
+        id: Date.now().toString(),
+        amount: amount,
+        category: selectedCategory.id,
+        categoryLabel: selectedCategory.label,
+        categoryIcon: selectedCategory.icon,
+        memo: memo,
+        timestamp: new Date().toISOString()
+      };
+
+      // Add to array
+      expenses.unshift(record);
+      saveToStorage();
+
+      // Trigger animations
+      playSuccessChime();
+      flashSuccessFeedback(amount);
+
+      // Reset fields
+      currentInput = "0";
+      document.getElementById('memoInput').value = "";
+      updateDisplay();
+      updateHistoryUI();
+    }
+
+    function flashSuccessFeedback(amt) {
+      const card = document.getElementById('displayCard');
+      const notice = document.getElementById('flashNotice');
+      const noticeText = document.getElementById('flashNoticeText');
+
+      noticeText.innerText = `+ $${amt.toFixed(2)} Logged!`;
+
+      notice.classList.remove('opacity-0');
+      notice.classList.add('opacity-100');
+      card.classList.add('border-emerald-500/80');
+
+      setTimeout(() => {
+        notice.classList.remove('opacity-100');
+        notice.classList.add('opacity-0');
+        card.classList.remove('border-emerald-500/80');
+      }, 700);
+    }
+
+    function toggleAutoSubmit() {
+      playKeyClick();
+      autoSubmitMode = !autoSubmitMode;
+      const toggle = document.getElementById('autoSubmitToggle');
+      const dot = document.getElementById('autoSubmitStatusDot');
+      const indicator = document.getElementById('oneTapIndicator');
+
+      if (autoSubmitMode) {
+        toggle.classList.add('border-cyan-400', 'text-cyan-300', 'bg-cyan-950/40');
+        dot.classList.remove('bg-slate-600');
+        dot.classList.add('bg-cyan-400');
+        indicator.classList.remove('hidden');
+        showToast("1-Tap Log ON: Picking a category instantly saves!");
+      } else {
+        toggle.classList.remove('border-cyan-400', 'text-cyan-300', 'bg-cyan-950/40');
+        dot.classList.add('bg-slate-600');
+        dot.classList.remove('bg-cyan-400');
+        indicator.classList.add('hidden');
+        showToast("1-Tap Log OFF");
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('soundIconOn').classList.toggle('hidden', !audioEnabled);
+      document.getElementById('soundIconOff').classList.toggle('hidden', audioEnabled);
+      if (audioEnabled) initAudio();
+    }
+
+    function toggleHistorySheet(open) {
+      playKeyClick();
+      const sheet = document.getElementById('historySheet');
+      const panel = document.getElementById('historyPanel');
+
+      if (open) {
+        sheet.classList.remove('opacity-0', 'pointer-events-none');
+        sheet.classList.add('opacity-100');
+        panel.classList.remove('translate-y-full');
+        panel.classList.add('translate-y-0');
+        updateHistoryUI();
+      } else {
+        sheet.classList.add('opacity-0', 'pointer-events-none');
+        sheet.classList.remove('opacity-100');
+        panel.classList.add('translate-y-full');
+        panel.classList.remove('translate-y-0');
+      }
+    }
+
+    function deleteExpense(id) {
+      expenses = expenses.filter(e => e.id !== id);
+      saveToStorage();
+      updateHistoryUI();
+      showToast("Entry removed");
+    }
+
+    function updateHistoryUI() {
+      const list = document.getElementById('historyList');
+      const sheetCount = document.getElementById('sheetRecordCount');
+      const sheetTotal = document.getElementById('sheetTotalSpent');
+      const todaySnippet = document.getElementById('todayTotalSnippet');
+
+      // Filter today's items
+      const todayDateStr = new Date().toDateString();
+      const todayExpenses = expenses.filter(item => new Date(item.timestamp).toDateString() === todayDateStr);
+      
+      const totalToday = todayExpenses.reduce((sum, item) => sum + item.amount, 0);
+
+      todaySnippet.innerText = `$${totalToday.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      sheetTotal.innerText = `$${totalToday.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      sheetCount.innerText = `${todayExpenses.length} items`;
+
+      if (expenses.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-12 text-slate-500 text-xs">
+            <p class="text-2xl mb-2">💸</p>
+            <p>No expenses logged yet.</p>
+            <p class="mt-1 text-slate-600">Enter a number and tap RECORD.</p>
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = '';
+      expenses.forEach(item => {
+        const itemDate = new Date(item.timestamp);
+        const timeStr = itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = itemDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between p-2.5 rounded-xl bg-surface-800 border border-white/5 hover:border-white/10";
+        row.innerHTML = `
+          <div class="flex items-center gap-3 overflow-hidden">
+            <div class="w-9 h-9 rounded-lg bg-surface-700 flex items-center justify-center text-lg flex-shrink-0">
+              ${item.categoryIcon}
+            </div>
+            <div class="truncate">
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-xs text-white">${item.categoryLabel}</span>
+                ${item.memo ? `<span class="text-[11px] text-slate-400 truncate max-w-[120px]">"${item.memo}"</span>` : ''}
+              </div>
+              <span class="text-[10px] text-slate-500 font-mono">${dateStr} · ${timeStr}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span class="font-mono font-bold text-emerald-400 text-sm">$${item.amount.toFixed(2)}</span>
+            <button onclick="deleteExpense('${item.id}')" class="text-slate-500 hover:text-rose-400 p-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem('quickspend_logs', JSON.stringify(expenses));
+      } catch (e) {
+        console.error("Local storage error:", e);
+      }
+    }
+
+    function loadFromStorage() {
+      try {
+        const saved = localStorage.getItem('quickspend_logs');
+        if (saved) expenses = JSON.parse(saved);
+      } catch (e) {
+        expenses = [];
+      }
+    }
+
+    function exportToCsv() {
+      if (expenses.length === 0) {
+        showToast("Nothing to export yet!");
+        return;
+      }
+      let csvContent = "data:text/csv;charset=utf-8,ID,Timestamp,Date,Time,Category,Amount,Memo\n";
+      expenses.forEach(row => {
+        const d = new Date(row.timestamp);
+        const date = d.toISOString().split('T')[0];
+        const time = d.toTimeString().split(' ')[0];
+        csvContent += `"${row.id}","${row.timestamp}","${date}","${time}","${row.categoryLabel}",${row.amount},"${(row.memo || '').replace(/"/g, '""')}"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `quickspend_export_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("CSV Downloaded!");
+    }
+
+    function copyForGoogleSheets() {
+      if (expenses.length === 0) {
+        showToast("No data to copy!");
+        return;
+      }
+      // Tab-delimited formatting for instant paste into Google Sheets columns
+      let tsv = "Date\tTime\tCategory\tAmount\tMemo\n";
+      expenses.forEach(row => {
+        const d = new Date(row.timestamp);
+        const date = d.toLocaleDateString();
+        const time = d.toLocaleTimeString();
+        tsv += `${date}\t${time}\t${row.categoryLabel}\t${row.amount}\t${row.memo || ''}\n`;
+      });
+
+      // Safe clipboard fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = tsv;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      showToast("Copied! Paste directly into Google Sheets 📋");
+    }
+
+    function clearHistoryPrompt() {
+      if (expenses.length === 0) return;
+      expenses = [];
+      saveToStorage();
+      updateHistoryUI();
+      showToast("All logs cleared!");
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('generalToast');
+      toast.innerText = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2000);
+    }
+
+    function dismissPwaBanner() {
+      document.getElementById('pwaBanner').style.display = 'none';
+    }
+
+    // Keyboard support for testing on laptop
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement.id === 'memoInput') return;
+      if (e.key >= '0' && e.key <= '9') pressKey(e.key);
+      else if (e.key === '.') pressKey('.');
+      else if (e.key === 'Backspace') pressBackspace();
+      else if (e.key === 'Enter') commitExpense();
+    });
+
+    window.onload = function() {
+      loadFromStorage();
+      renderCategories();
+      updateDisplay();
+      updateHistoryUI();
+    };
+  </script>
+</body>
+</html>
