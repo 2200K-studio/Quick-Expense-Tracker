@@ -501,14 +501,24 @@
       }
 
       const memo = document.getElementById('memoInput').value.trim();
+      // 取得台灣時區當天日期 (YYYY-MM-DD)
+      const now = new Date();
+      const localDate = new Intl.DateTimeFormat('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'Asia/Taipei'
+      }).format(now).replace(/\//g, '-');
+
       const record = {
         id: "tx_" + Date.now(),
         amount: amount,
-        category: selectedCategory.id,
+        category: `${selectedCategory.icon} ${selectedCategory.label}`, // 包含圖示與名稱
         categoryLabel: selectedCategory.label,
         categoryIcon: selectedCategory.icon,
         memo: memo,
-        timestamp: new Date().toISOString(),
+        date: localDate, // 配合 GAS 後端的 date 欄位 (2026-09-27)
+        timestamp: now.toISOString(),
         synced: false
       };
 
@@ -787,11 +797,19 @@
 
       showToast(`Syncing ${itemsToSync.length} items...`);
 
+      const payloadItems = itemsToSync.map(item => ({
+        id: item.id,
+        date: item.date || item.timestamp.split('T')[0],
+        amount: item.amount,
+        category: item.category || `${item.categoryIcon} ${item.categoryLabel}`,
+        note: item.memo || item.note || ''
+      }));
+
       try {
         const response = await fetch(gasWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ items: itemsToSync })
+          body: JSON.stringify({ items: payloadItems })
         });
 
         const result = await response.json();
