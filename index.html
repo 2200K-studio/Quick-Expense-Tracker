@@ -254,36 +254,53 @@
 
     <!-- Monthly Insights Modal -->
     <div id="insightsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200 flex flex-col justify-end">
-      <div id="insightsPanel" class="bg-surface-900 border-t border-white/15 rounded-t-3xl max-h-[85vh] h-full flex flex-col p-5 w-full max-w-md mx-auto transform translate-y-full transition-transform duration-300">
+      <div id="insightsPanel" class="bg-surface-900 border-t border-white/15 rounded-t-3xl max-h-[90vh] h-full flex flex-col p-5 w-full max-w-md mx-auto transform translate-y-full transition-transform duration-300">
         
         <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3 cursor-pointer" onclick="closeInsightsModal()"></div>
 
+        <!-- Header with Month Navigator -->
         <div class="flex items-center justify-between pb-3 border-b border-white/10">
-          <h2 class="text-base font-bold text-white flex items-center gap-2">
-            <span>📊 Monthly Insights</span>
-          </h2>
-          <button onclick="closeInsightsModal()" class="w-8 h-8 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center text-lg">
+          <div class="flex items-center gap-3">
+            <button onclick="changeInsightMonth(-1)" class="w-7 h-7 rounded-lg bg-surface-800 border border-white/5 flex items-center justify-center hover:bg-surface-700 text-slate-300">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <h2 id="insightMonthLabel" class="text-base font-bold text-white tracking-wide font-mono">Sep 2026</h2>
+            <button onclick="changeInsightMonth(1)" class="w-7 h-7 rounded-lg bg-surface-800 border border-white/5 flex items-center justify-center hover:bg-surface-700 text-slate-300">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          <button onclick="closeInsightsModal()" class="w-7 h-7 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center text-lg">
             &times;
           </button>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 py-3">
-          <div class="glass-panel p-3 rounded-xl border border-white/5">
-            <span class="text-[11px] text-slate-400 font-medium">Month Total</span>
-            <div id="insightsMonthTotal" class="text-xl font-bold font-mono text-emerald-400 mt-1">$0</div>
+        <!-- 2 Blocks: Combined Data & Net Balance -->
+        <div class="grid grid-cols-2 gap-2 py-3 shrink-0">
+          <div class="glass-panel p-3 rounded-xl border border-white/5 flex flex-col justify-between">
+            <div>
+              <span class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Expense</span>
+              <div id="insightsExpense" class="text-lg font-bold font-mono text-rose-400 mt-0.5">-$0</div>
+              <div id="insightsDaily" class="text-[10px] text-slate-500 font-mono mt-0.5">Avg: $0 / day</div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-white/5 flex justify-between items-baseline">
+              <span class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Income</span>
+              <span id="insightsIncome" class="text-sm font-bold font-mono text-emerald-400">+$0</span>
+            </div>
           </div>
-          <div class="glass-panel p-3 rounded-xl border border-white/5">
-            <span class="text-[11px] text-slate-400 font-medium">Total Entries</span>
-            <div id="insightsMonthCount" class="text-xl font-bold font-mono text-cyan-400 mt-1">0</div>
+
+          <div class="glass-panel p-3 rounded-xl border border-white/5 flex flex-col">
+            <span class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Net Balance</span>
+            <div id="insightsNet" class="text-2xl font-bold font-mono text-cyan-400 mt-1">$0</div>
           </div>
         </div>
 
-        <div class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">Category Breakdown</div>
+        <!-- Scrollable content for Breakdown & Top 5 -->
+        <div class="flex-1 overflow-y-auto pr-1 pb-4">
+          <div class="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-2 mt-1">Category Breakdown</div>
+          <div id="insightsBreakdown" class="space-y-1.5 mb-4"></div>
 
-        <div id="insightsBreakdown" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
-
-        <div class="pt-3 border-t border-white/10 text-right">
-          <button onclick="closeInsightsModal()" class="px-4 py-1.5 rounded-lg bg-surface-800 text-xs text-slate-300 hover:text-white">Close</button>
+          <div class="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">Highest Spends (Top 5)</div>
+          <div id="insightsTopSpends" class="space-y-1.5"></div>
         </div>
       </div>
     </div>
@@ -652,49 +669,100 @@
       });
     }
 
-    // Insights Modal Logic
-    function openInsightsModal() {
+    let currentInsightDate = new Date();
+
+    async function openInsightsModal() {
       playKeyClick();
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const monthExpenses = expenses.filter(e => e.timestamp.startsWith(currentMonth));
-      const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-      document.getElementById('insightsMonthTotal').innerText = `$${total.toLocaleString()}`;
-      document.getElementById('insightsMonthCount').innerText = `${monthExpenses.length}`;
-
-      const catMap = {};
-      monthExpenses.forEach(e => {
-        catMap[e.categoryLabel] = (catMap[e.categoryLabel] || 0) + e.amount;
-      });
-
-      const container = document.getElementById('insightsBreakdown');
-      if (monthExpenses.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">No records for this month yet.</div>`;
-      } else {
-        container.innerHTML = Object.entries(catMap)
-          .sort((a, b) => b[1] - a[1])
-          .map(([label, amt]) => {
-            const pct = total > 0 ? ((amt / total) * 100).toFixed(1) : 0;
-            return `
-              <div class="glass-panel p-2.5 rounded-xl border border-white/5">
-                <div class="flex justify-between items-center text-xs mb-1.5">
-                  <span class="font-semibold text-slate-300">${label}</span>
-                  <span class="font-mono font-bold text-white">$${amt.toLocaleString()} <span class="text-slate-400 font-normal text-[11px]">(${pct}%)</span></span>
-                </div>
-                <div class="h-1.5 w-full bg-surface-700 rounded-full overflow-hidden">
-                  <div class="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full" style="width: ${pct}%"></div>
-                </div>
-              </div>
-            `;
-          }).join('');
-      }
-
+      currentInsightDate = new Date(); // 每次打開都預設顯示「本月」
+      
       const modal = document.getElementById('insightsModal');
       const panel = document.getElementById('insightsPanel');
       modal.classList.remove('opacity-0', 'pointer-events-none');
       modal.classList.add('opacity-100');
       panel.classList.remove('translate-y-full');
       panel.classList.add('translate-y-0');
+
+      await fetchInsightsData();
+    }
+
+    async function changeInsightMonth(offset) {
+      playKeyClick();
+      currentInsightDate.setMonth(currentInsightDate.getMonth() + offset);
+      await fetchInsightsData();
+    }
+
+    async function fetchInsightsData() {
+      if (!gasWebhookUrl) {
+        document.getElementById('insightsBreakdown').innerHTML = `<div class="text-center py-4 text-xs text-slate-500">Please setup Sync first! ☁️</div>`;
+        return;
+      }
+
+      // 產生日期標籤 (例: Sep 2026) 與 Query String (例: 2026-09)
+      const options = { month: 'short', year: 'numeric' };
+      document.getElementById('insightMonthLabel').innerText = currentInsightDate.toLocaleDateString('en-US', options);
+      
+      const y = currentInsightDate.getFullYear();
+      const m = String(currentInsightDate.getMonth() + 1).padStart(2, '0');
+      const targetMonth = `${y}-${m}`;
+
+      document.getElementById('insightsBreakdown').innerHTML = `<div class="text-center py-4 text-xs text-cyan-400 animate-pulse">Fetching data... 🔄</div>`;
+      document.getElementById('insightsTopSpends').innerHTML = '';
+
+      try {
+        const url = `${gasWebhookUrl}?month=${targetMonth}`;
+        const res = await fetch(url, { redirect: 'follow' });
+        const data = await res.json();
+        
+        // 更新顯示（加上負號）
+        document.getElementById('insightsExpense').innerText = `-$${data.expense.toLocaleString()}`;
+        document.getElementById('insightsDaily').innerText = `Avg: $${data.dailyAvg.toLocaleString()} / day`;
+        document.getElementById('insightsIncome').innerText = `+$${data.income.toLocaleString()}`;
+        
+        const netEl = document.getElementById('insightsNet');
+        netEl.innerText = `${data.net >= 0 ? '+' : ''}$${data.net.toLocaleString()}`;
+        netEl.className = `text-2xl font-bold font-mono mt-1 ${data.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`; // 賺錢顯示綠色，透支顯示紅色
+
+        // 渲染 Breakdown
+        const breakdownContainer = document.getElementById('insightsBreakdown');
+        if (Object.keys(data.breakdown).length === 0) {
+          breakdownContainer.innerHTML = `<div class="text-xs text-slate-500 pl-1">No expenses yet.</div>`;
+        } else {
+          breakdownContainer.innerHTML = Object.entries(data.breakdown)
+            .sort((a, b) => b[1] - a[1])
+            .map(([label, amt]) => {
+              const pct = data.expense > 0 ? ((amt / data.expense) * 100).toFixed(1) : 0;
+              return `
+                <div class="glass-panel p-2 rounded-lg border border-white/5">
+                  <div class="flex justify-between items-center text-[11px] mb-1">
+                    <span class="font-semibold text-slate-300">${label}</span>
+                    <span class="font-mono font-bold text-white">-$${amt.toLocaleString()} <span class="text-slate-400 font-normal text-[10px]">(${pct}%)</span></span>
+                  </div>
+                  <div class="h-1 w-full bg-surface-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full" style="width: ${pct}%"></div>
+                  </div>
+                </div>
+              `;
+            }).join('');
+        }
+
+        // 渲染 Top 5
+        const topContainer = document.getElementById('insightsTopSpends');
+        if (data.topSpends.length === 0) {
+          topContainer.innerHTML = `<div class="text-xs text-slate-500 pl-1">No expenses yet.</div>`;
+        } else {
+          topContainer.innerHTML = data.topSpends.map(item => `
+            <div class="flex justify-between items-center p-2 rounded-lg bg-surface-800 border border-white/5">
+              <div class="flex flex-col truncate pr-2">
+                <span class="text-xs font-bold text-slate-200">${item.cat}</span>
+                <span class="text-[10px] text-slate-400 truncate mt-0.5">${item.memo ? item.memo : 'No memo'}</span>
+              </div>
+              <span class="text-sm font-mono font-bold text-rose-400 flex-shrink-0">-$${item.amount.toLocaleString()}</span>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        document.getElementById('insightsBreakdown').innerHTML = `<div class="text-xs text-rose-400 pl-1">Failed to fetch data.</div>`;
+      }
     }
 
     function closeInsightsModal() {
