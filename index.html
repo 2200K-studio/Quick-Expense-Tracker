@@ -33,20 +33,6 @@
               pink: '#ec4899',
               amber: '#f59e0b'
             }
-          },
-          animation: {
-            'pop-in': 'popIn 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
-            'flash-success': 'flashSuccess 0.4s ease-out forwards',
-          },
-          keyframes: {
-            popIn: {
-              '0%': { transform: 'scale(0.92)', opacity: '0' },
-              '100%': { transform: 'scale(1)', opacity: '1' },
-            },
-            flashSuccess: {
-              '0%': { backgroundColor: 'rgba(16, 185, 129, 0.4)' },
-              '100%': { backgroundColor: 'transparent' },
-            }
           }
         }
       }
@@ -54,7 +40,6 @@
   </script>
 
   <style>
-    /* Prevent accidental pull-to-refresh & double-tap zooming on mobile */
     body {
       touch-action: manipulation;
       user-select: none;
@@ -79,7 +64,6 @@
       scrollbar-width: none;
     }
 
-    /* Glass card effect */
     .glass-panel {
       background: rgba(20, 24, 36, 0.85);
       backdrop-filter: blur(16px);
@@ -97,23 +81,26 @@
 </head>
 <body class="text-slate-100 flex justify-center min-h-screen antialiased bg-[#0c0f17]">
 
-  <!-- Mobile container simulating an Android viewport -->
+  <!-- Mobile Container -->
   <div id="appContainer" class="w-full max-w-md h-full min-h-screen flex flex-col justify-between p-4 relative overflow-x-hidden">
 
-    <!-- Top Header & Fast Toggles -->
+    <!-- Top Header -->
     <header class="flex items-center justify-between pb-2 pt-1 border-b border-white/5">
       <div class="flex items-center gap-2">
         <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></div>
-        <span class="font-mono text-xs uppercase tracking-widest text-slate-400 font-bold">QuickSpend // Fast-Track</span>
+        <span class="font-mono text-xs uppercase tracking-widest text-slate-400 font-bold">QuickSpend // 1-Tap</span>
       </div>
 
-      <div class="flex items-center gap-2">
-        <!-- 1-Tap Auto-Submit Toggle -->
-        <button id="autoSubmitToggle" onclick="toggleAutoSubmit()" 
-                class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 transition-all bg-surface-800 text-slate-400"
-                title="Tapping a category will immediately save the typed amount">
-          <span id="autoSubmitStatusDot" class="w-2 h-2 rounded-full bg-slate-600"></span>
-          <span>1-Tap Log</span>
+      <div class="flex items-center gap-1.5">
+        <!-- Cloud Sync Button -->
+        <button id="cloudBtn" onclick="openSyncModal()" class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-surface-800 text-slate-300 hover:text-white transition-all">
+          <span id="cloudIcon">☁️</span>
+          <span id="cloudStatusText" class="font-mono text-[11px]">Sync</span>
+        </button>
+
+        <!-- Insights Button -->
+        <button onclick="openInsightsModal()" class="w-8 h-8 rounded-full bg-surface-800 flex items-center justify-center border border-white/10 text-purple-400 hover:bg-surface-700" title="Monthly Insights">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         </button>
 
         <!-- Sound Toggle -->
@@ -122,35 +109,27 @@
           <svg id="soundIconOff" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
         </button>
 
-        <!-- View Logs / Bottom Sheet Button -->
-        <button onclick="toggleHistorySheet(true)" class="w-8 h-8 rounded-full bg-surface-800 flex items-center justify-center border border-white/10 text-cyan-400 hover:bg-surface-700">
+        <!-- History Drawer Button -->
+        <button onclick="toggleHistorySheet(true)" class="w-8 h-8 rounded-full bg-surface-800 flex items-center justify-center border border-white/10 text-cyan-400 hover:bg-surface-700" title="History Log">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </button>
       </div>
     </header>
 
-    <!-- Chrome PWA Installation Banner (Dismissible) -->
-    <div id="pwaBanner" class="mt-2 glass-panel p-2.5 rounded-xl border border-cyan-500/20 flex items-center justify-between text-xs text-slate-300">
-      <div class="flex items-center gap-2">
-        <span class="text-base">📲</span>
-        <span>Tap <strong>⋮</strong> in Chrome &rarr; <strong>"Add to Home screen"</strong> for instant 1-tap widget speed!</span>
-      </div>
-      <button onclick="dismissPwaBanner()" class="text-slate-400 hover:text-white px-1.5 py-0.5">&times;</button>
-    </div>
-
-    <!-- Display Section: Big Numbers & Selected Category -->
+    <!-- Display Section: Big Numbers -->
     <section id="displayCard" class="my-3 glass-panel p-4 rounded-2xl flex flex-col justify-between border border-white/10 relative transition-all duration-200">
       
-      <!-- Top info line: Active Category Badge + Quick Note toggle -->
+      <!-- Top info line: Active Category Badge + Today's total -->
       <div class="flex items-center justify-between">
         <div id="activeCategoryBadge" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
           <span id="activeBadgeIcon">🍱</span>
-          <span id="activeBadgeLabel">Meal</span>
+          <span id="activeBadgeLabel">Food</span>
         </div>
 
-        <div class="flex items-center gap-1.5 text-xs text-slate-400">
-          <span class="font-mono">Today:</span>
-          <span id="todayTotalSnippet" class="font-mono font-bold text-emerald-400">$0</span>
+        <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+          <span id="pendingIndicator" class="hidden text-amber-400 font-semibold">• 0 pending</span>
+          <span>Today:</span>
+          <span id="todayTotalSnippet" class="font-bold text-emerald-400">$0</span>
         </div>
       </div>
 
@@ -162,28 +141,27 @@
         </div>
       </div>
 
-      <!-- Quick optional memo/note -->
+      <!-- Quick optional memo/note (without clear button) -->
       <div class="pt-2 border-t border-white/5 flex items-center gap-2">
-        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-        <input type="text" id="memoInput" placeholder="Add memo (e.g. Ramen, iced latte...)" 
+        <svg class="w-3.5 h-3.5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        <input type="text" id="memoInput" placeholder="Add memo (e.g. Dinner, metro...)" 
                class="bg-transparent text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none w-full font-sans">
-        <button onclick="clearMemo()" class="text-slate-600 hover:text-slate-400 text-xs px-1">&times;</button>
       </div>
 
       <!-- Toast Feedback Message Overlay -->
       <div id="flashNotice" class="absolute inset-0 rounded-2xl flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300">
         <div class="bg-emerald-500/90 text-slate-950 font-bold text-sm px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          <span id="flashNoticeText">Recorded!</span>
+          <span id="flashNoticeText">Logged!</span>
         </div>
       </div>
     </section>
 
-    <!-- Category Pills Section (Horizontal Scrollable on Small Screens) -->
+    <!-- Category Pills Section -->
     <section class="mb-2">
       <div class="flex items-center justify-between mb-1.5 px-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">Select Category</span>
-        <span id="oneTapIndicator" class="text-[10px] text-cyan-400/80 italic hidden">Instant-Log active ⚡</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">1-Tap Category</span>
+        <span class="text-[10px] text-cyan-400/80 italic font-mono">Instant Log Active ⚡</span>
       </div>
 
       <div id="categoryContainer" class="flex gap-2 overflow-x-auto pill-scroll pb-1">
@@ -191,15 +169,15 @@
       </div>
     </section>
 
-    <!-- Fast Increment Quick-Add Pills (+10, +50, +100, +500) -->
+    <!-- Fast Increment Quick-Add Pills -->
     <div class="grid grid-cols-4 gap-1.5 mb-2">
-      <button onclick="addPreset(10)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+10</button>
       <button onclick="addPreset(50)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+50</button>
       <button onclick="addPreset(100)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+100</button>
       <button onclick="addPreset(500)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+500</button>
+      <button onclick="addPreset(1000)" class="keypad-btn py-1.5 bg-surface-800/80 hover:bg-surface-700 rounded-lg text-xs font-mono font-semibold text-slate-300 border border-white/5 active:border-cyan-500/50">+1000</button>
     </div>
 
-    <!-- Main 4x3 Keypad -->
+    <!-- Main 4x3 Keypad (No Decimal, Replaced with 00) -->
     <section class="grid grid-cols-3 gap-2 flex-grow max-h-[300px] mb-2">
       <button onclick="pressKey('1')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">1</button>
       <button onclick="pressKey('2')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">2</button>
@@ -213,14 +191,14 @@
       <button onclick="pressKey('8')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">8</button>
       <button onclick="pressKey('9')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">9</button>
 
-      <button onclick="pressKey('.')" class="keypad-btn bg-surface-800/80 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-400 shadow-sm">.</button>
+      <button onclick="pressKey('00')" class="keypad-btn bg-surface-800/80 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-xl font-bold flex items-center justify-center text-slate-300 shadow-sm">00</button>
       <button onclick="pressKey('0')" class="keypad-btn bg-surface-800 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-2xl font-bold flex items-center justify-center text-slate-100 shadow-sm">0</button>
       <button onclick="pressBackspace()" class="keypad-btn bg-surface-800/80 hover:bg-surface-700 border border-white/5 rounded-xl font-mono text-xl font-bold flex items-center justify-center text-amber-400/90 shadow-sm">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"/></svg>
       </button>
     </section>
 
-    <!-- Action Bar: Clear & Glow Submit -->
+    <!-- Action Bar: Clear & Manual Record -->
     <div class="grid grid-cols-4 gap-2 pt-1 pb-2">
       <button onclick="clearAmount()" class="keypad-btn col-span-1 bg-surface-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-white/10 rounded-xl font-mono text-sm font-semibold flex items-center justify-center py-3.5">
         C
@@ -233,29 +211,27 @@
       </button>
     </div>
 
-    <!-- Bottom Sheet / Expense History Drawer (Hidden by default) -->
+    <!-- History Bottom Sheet -->
     <div id="historySheet" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200 flex flex-col justify-end">
       <div id="historyPanel" class="bg-surface-900 border-t border-white/15 rounded-t-3xl max-h-[85vh] h-full flex flex-col p-4 w-full max-w-md mx-auto transform translate-y-full transition-transform duration-300">
         
-        <!-- Sheet Handle -->
         <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3 cursor-pointer" onclick="toggleHistorySheet(false)"></div>
 
-        <!-- Header inside sheet -->
         <div class="flex items-center justify-between pb-3 border-b border-white/10">
           <div>
             <h2 class="text-lg font-bold text-white flex items-center gap-2">
               <span>Today's Log</span>
               <span id="sheetRecordCount" class="text-xs font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">0</span>
             </h2>
-            <p class="text-xs text-slate-400 font-mono">Total Spent: <span id="sheetTotalSpent" class="font-bold text-emerald-400">$0.00</span></p>
+            <p class="text-xs text-slate-400 font-mono">Today's Total: <span id="sheetTotalSpent" class="font-bold text-emerald-400">$0</span></p>
           </div>
 
-          <button onclick="toggleHistorySheet(false)" class="w-8 h-8 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center">
+          <button onclick="toggleHistorySheet(false)" class="w-8 h-8 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center text-lg">
             &times;
           </button>
         </div>
 
-        <!-- Action tools: CSV Export & Google Sheet Copy -->
+        <!-- Export tools -->
         <div class="flex gap-2 py-2.5">
           <button onclick="exportToCsv()" class="flex-1 py-1.5 px-3 bg-surface-800 hover:bg-surface-700 text-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/5">
             <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -267,15 +243,93 @@
           </button>
         </div>
 
-        <!-- Scrollable List of Today's Transactions -->
-        <div id="historyList" class="flex-1 overflow-y-auto space-y-2 py-2 pr-1">
-          <!-- Transcation items inserted here -->
-        </div>
+        <div id="historyList" class="flex-1 overflow-y-auto space-y-2 py-2 pr-1"></div>
 
-        <!-- Footer inside sheet with Clear All -->
         <div class="pt-3 border-t border-white/10 flex justify-between items-center text-xs">
           <button onclick="clearHistoryPrompt()" class="text-rose-400 hover:text-rose-300">Clear all records</button>
           <button onclick="toggleHistorySheet(false)" class="text-slate-400 hover:text-white">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Insights Modal -->
+    <div id="insightsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200 flex flex-col justify-end">
+      <div id="insightsPanel" class="bg-surface-900 border-t border-white/15 rounded-t-3xl max-h-[85vh] h-full flex flex-col p-5 w-full max-w-md mx-auto transform translate-y-full transition-transform duration-300">
+        
+        <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3 cursor-pointer" onclick="closeInsightsModal()"></div>
+
+        <div class="flex items-center justify-between pb-3 border-b border-white/10">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <span>📊 Monthly Insights</span>
+          </h2>
+          <button onclick="closeInsightsModal()" class="w-8 h-8 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center text-lg">
+            &times;
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 py-3">
+          <div class="glass-panel p-3 rounded-xl border border-white/5">
+            <span class="text-[11px] text-slate-400 font-medium">Month Total</span>
+            <div id="insightsMonthTotal" class="text-xl font-bold font-mono text-emerald-400 mt-1">$0</div>
+          </div>
+          <div class="glass-panel p-3 rounded-xl border border-white/5">
+            <span class="text-[11px] text-slate-400 font-medium">Total Entries</span>
+            <div id="insightsMonthCount" class="text-xl font-bold font-mono text-cyan-400 mt-1">0</div>
+          </div>
+        </div>
+
+        <div class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">Category Breakdown</div>
+
+        <div id="insightsBreakdown" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+
+        <div class="pt-3 border-t border-white/10 text-right">
+          <button onclick="closeInsightsModal()" class="px-4 py-1.5 rounded-lg bg-surface-800 text-xs text-slate-300 hover:text-white">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync Settings Modal -->
+    <div id="syncModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200 flex flex-col justify-end">
+      <div id="syncPanel" class="bg-surface-900 border-t border-white/15 rounded-t-3xl max-h-[85vh] h-auto flex flex-col p-5 w-full max-w-md mx-auto transform translate-y-full transition-transform duration-300">
+        
+        <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3 cursor-pointer" onclick="closeSyncModal()"></div>
+
+        <div class="flex items-center justify-between pb-3 border-b border-white/10">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <span>☁️ Google Sheets Sync</span>
+          </h2>
+          <button onclick="closeSyncModal()" class="w-8 h-8 rounded-full bg-surface-800 text-slate-400 hover:text-white flex items-center justify-center text-lg">
+            &times;
+          </button>
+        </div>
+
+        <div class="glass-panel p-3.5 rounded-xl border border-white/5 my-3 text-xs space-y-1.5">
+          <div class="flex justify-between">
+            <span class="text-slate-400">Connection Status:</span>
+            <span id="modalSyncState" class="font-semibold text-slate-200">Local Only</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Pending Sync:</span>
+            <span id="modalPendingCount" class="font-mono font-bold text-amber-400">0</span>
+          </div>
+          <p class="text-[11px] text-slate-500 pt-1 border-t border-white/5">
+            Seamless offline logging: batches sync to your Google Sheet whenever you tap Sync or reopen the app!
+          </p>
+        </div>
+
+        <div class="space-y-1.5 mb-3">
+          <label class="text-[11px] font-mono text-slate-400">Google Apps Script Web App URL:</label>
+          <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/.../exec"
+                 class="w-full bg-surface-800 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 font-mono">
+        </div>
+
+        <div class="space-y-2">
+          <button onclick="saveWebhookUrl()" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors">
+            Save Webhook URL
+          </button>
+          <button onclick="triggerBatchSync(true)" class="w-full py-2.5 rounded-xl bg-surface-800 hover:bg-surface-700 text-slate-200 border border-white/5 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5">
+            🔄 Sync Pending Records Now
+          </button>
         </div>
 
       </div>
@@ -289,33 +343,32 @@
   </div>
 
   <script>
-    // Categories configuration
+    // Categories configuration with your requested items
     const CATEGORIES = [
-      { id: 'meal', label: 'Meal', icon: '🍱', color: 'cyan' },
-      { id: 'drink', label: 'Drink', icon: '☕', color: 'amber' },
-      { id: 'art', label: 'Art/Hobby', icon: '🎨', color: 'purple' },
+      { id: 'food', label: 'Food', icon: '🍱', color: 'cyan' },
       { id: 'transit', label: 'Transit', icon: '🚌', color: 'emerald' },
-      { id: 'shop', label: 'Shopping', icon: '🛍️', color: 'pink' },
-      { id: 'gacha', label: 'Gacha/Game', icon: '🎮', color: 'indigo' },
+      { id: 'fun', label: 'Fun & Shop', icon: '🛍️', color: 'pink' },
       { id: 'health', label: 'Health', icon: '💊', color: 'rose' },
-      { id: 'bills', label: 'Bills', icon: '💡', color: 'yellow' }
+      { id: 'study', label: 'Study', icon: '📚', color: 'purple' },
+      { id: 'bill', label: 'Bill', icon: '💡', color: 'amber' },
+      { id: 'rent', label: 'Rent', icon: '🏠', color: 'indigo' },
+      { id: 'income', label: 'Income', icon: '💰', color: 'emerald' }
     ];
 
     // State Variables
     let currentInput = "0";
     let selectedCategory = CATEGORIES[0];
-    let autoSubmitMode = false;
     let audioEnabled = true;
     let expenses = [];
+    let gasWebhookUrl = localStorage.getItem('quickspend_webhook_url') || '';
 
-    // Tone.js Sound Synthesizer for tactile feedback
+    // Tone.js Sound Synthesizer
     let tapSynth = null;
     let successSynth = null;
 
     function initAudio() {
       if (tapSynth || !audioEnabled) return;
       try {
-        // Subtle soft mechanical click
         tapSynth = new Tone.MembraneSynth({
           pitchDecay: 0.008,
           octaves: 2,
@@ -324,7 +377,6 @@
         }).toDestination();
         tapSynth.volume.value = -12;
 
-        // Upbeat chime for successful entry
         successSynth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: "triangle" },
           envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.2 }
@@ -362,7 +414,7 @@
         const isSelected = selectedCategory.id === cat.id;
         const btn = document.createElement('button');
         btn.onclick = () => selectCategory(cat);
-        btn.className = `flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all border ${
+        btn.className = `flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
           isSelected 
             ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 glow-cyan scale-105' 
             : 'bg-surface-800 text-slate-300 border-white/5 hover:border-white/20'
@@ -371,18 +423,18 @@
         container.appendChild(btn);
       });
 
-      // Update Top Active Badge
       document.getElementById('activeBadgeIcon').innerText = selectedCategory.icon;
       document.getElementById('activeBadgeLabel').innerText = selectedCategory.label;
     }
 
+    // 1-Tap Log is always active by default
     function selectCategory(cat) {
       playKeyClick();
       selectedCategory = cat;
       renderCategories();
 
-      // If "1-Tap Mode" is on and user typed an amount > 0, instantly record!
-      if (autoSubmitMode && parseFloat(currentInput) > 0) {
+      const amount = parseInt(currentInput, 10);
+      if (amount > 0) {
         commitExpense();
       }
     }
@@ -390,11 +442,11 @@
     function updateDisplay() {
       const display = document.getElementById('amountDisplay');
       const submitSnippet = document.getElementById('submitAmountSnippet');
+      const formatted = parseInt(currentInput, 10).toLocaleString('en-US');
       
-      display.innerText = currentInput;
-      submitSnippet.innerText = `($${currentInput})`;
+      display.innerText = formatted;
+      submitSnippet.innerText = `($${formatted})`;
 
-      // Shrink font size if string is very long
       if (currentInput.length > 7) {
         display.classList.remove('text-5xl');
         display.classList.add('text-3xl');
@@ -407,19 +459,12 @@
     function pressKey(key) {
       playKeyClick();
       
-      if (key === '.') {
-        if (currentInput.includes('.')) return;
-        currentInput += '.';
+      if (currentInput === "0") {
+        if (key === "00") return;
+        currentInput = key;
       } else {
-        if (currentInput === "0") {
-          currentInput = key;
-        } else {
-          // Limit max 8 digits
-          if (currentInput.replace('.', '').length >= 8) return;
-          // Prevent more than 2 decimals
-          if (currentInput.includes('.') && currentInput.split('.')[1].length >= 2) return;
-          currentInput += key;
-        }
+        if (currentInput.length >= 9) return;
+        currentInput += key;
       }
       updateDisplay();
     }
@@ -442,18 +487,14 @@
 
     function addPreset(val) {
       playKeyClick();
-      let currentVal = parseFloat(currentInput) || 0;
+      let currentVal = parseInt(currentInput, 10) || 0;
       currentVal += val;
       currentInput = currentVal.toString();
       updateDisplay();
     }
 
-    function clearMemo() {
-      document.getElementById('memoInput').value = '';
-    }
-
     function commitExpense() {
-      const amount = parseFloat(currentInput);
+      const amount = parseInt(currentInput, 10);
       if (isNaN(amount) || amount <= 0) {
         showToast("Enter an amount first!");
         return;
@@ -461,28 +502,30 @@
 
       const memo = document.getElementById('memoInput').value.trim();
       const record = {
-        id: Date.now().toString(),
+        id: "tx_" + Date.now(),
         amount: amount,
         category: selectedCategory.id,
         categoryLabel: selectedCategory.label,
         categoryIcon: selectedCategory.icon,
         memo: memo,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        synced: false
       };
 
-      // Add to array
       expenses.unshift(record);
       saveToStorage();
 
-      // Trigger animations
       playSuccessChime();
       flashSuccessFeedback(amount);
 
-      // Reset fields
       currentInput = "0";
       document.getElementById('memoInput').value = "";
       updateDisplay();
       updateHistoryUI();
+      updatePendingBadge();
+
+      // Trigger automatic batch sync if applicable
+      checkAndAutoSyncDaily();
     }
 
     function flashSuccessFeedback(amt) {
@@ -490,7 +533,7 @@
       const notice = document.getElementById('flashNotice');
       const noticeText = document.getElementById('flashNoticeText');
 
-      noticeText.innerText = `+ $${amt.toFixed(2)} Logged!`;
+      noticeText.innerText = `+ $${amt.toLocaleString()} Logged!`;
 
       notice.classList.remove('opacity-0');
       notice.classList.add('opacity-100');
@@ -503,28 +546,6 @@
       }, 700);
     }
 
-    function toggleAutoSubmit() {
-      playKeyClick();
-      autoSubmitMode = !autoSubmitMode;
-      const toggle = document.getElementById('autoSubmitToggle');
-      const dot = document.getElementById('autoSubmitStatusDot');
-      const indicator = document.getElementById('oneTapIndicator');
-
-      if (autoSubmitMode) {
-        toggle.classList.add('border-cyan-400', 'text-cyan-300', 'bg-cyan-950/40');
-        dot.classList.remove('bg-slate-600');
-        dot.classList.add('bg-cyan-400');
-        indicator.classList.remove('hidden');
-        showToast("1-Tap Log ON: Picking a category instantly saves!");
-      } else {
-        toggle.classList.remove('border-cyan-400', 'text-cyan-300', 'bg-cyan-950/40');
-        dot.classList.add('bg-slate-600');
-        dot.classList.remove('bg-cyan-400');
-        indicator.classList.add('hidden');
-        showToast("1-Tap Log OFF");
-      }
-    }
-
     function toggleAudio() {
       audioEnabled = !audioEnabled;
       document.getElementById('soundIconOn').classList.toggle('hidden', !audioEnabled);
@@ -532,6 +553,7 @@
       if (audioEnabled) initAudio();
     }
 
+    // History Sheet Handlers
     function toggleHistorySheet(open) {
       playKeyClick();
       const sheet = document.getElementById('historySheet');
@@ -555,6 +577,7 @@
       expenses = expenses.filter(e => e.id !== id);
       saveToStorage();
       updateHistoryUI();
+      updatePendingBadge();
       showToast("Entry removed");
     }
 
@@ -564,14 +587,13 @@
       const sheetTotal = document.getElementById('sheetTotalSpent');
       const todaySnippet = document.getElementById('todayTotalSnippet');
 
-      // Filter today's items
       const todayDateStr = new Date().toDateString();
       const todayExpenses = expenses.filter(item => new Date(item.timestamp).toDateString() === todayDateStr);
       
       const totalToday = todayExpenses.reduce((sum, item) => sum + item.amount, 0);
 
-      todaySnippet.innerText = `$${totalToday.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      sheetTotal.innerText = `$${totalToday.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      todaySnippet.innerText = `$${totalToday.toLocaleString()}`;
+      sheetTotal.innerText = `$${totalToday.toLocaleString()}`;
       sheetCount.innerText = `${todayExpenses.length} items`;
 
       if (expenses.length === 0) {
@@ -579,7 +601,6 @@
           <div class="text-center py-12 text-slate-500 text-xs">
             <p class="text-2xl mb-2">💸</p>
             <p>No expenses logged yet.</p>
-            <p class="mt-1 text-slate-600">Enter a number and tap RECORD.</p>
           </div>
         `;
         return;
@@ -603,12 +624,15 @@
                 <span class="font-bold text-xs text-white">${item.categoryLabel}</span>
                 ${item.memo ? `<span class="text-[11px] text-slate-400 truncate max-w-[120px]">"${item.memo}"</span>` : ''}
               </div>
-              <span class="text-[10px] text-slate-500 font-mono">${dateStr} · ${timeStr}</span>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span class="w-1.5 h-1.5 rounded-full ${item.synced ? 'bg-emerald-400' : 'bg-amber-400'}" title="${item.synced ? 'Synced' : 'Pending'}"></span>
+                <span class="text-[10px] text-slate-500 font-mono">${dateStr} · ${timeStr}</span>
+              </div>
             </div>
           </div>
 
           <div class="flex items-center gap-2 flex-shrink-0">
-            <span class="font-mono font-bold text-emerald-400 text-sm">$${item.amount.toFixed(2)}</span>
+            <span class="font-mono font-bold text-emerald-400 text-sm">$${item.amount.toLocaleString()}</span>
             <button onclick="deleteExpense('${item.id}')" class="text-slate-500 hover:text-rose-400 p-1">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
@@ -618,11 +642,179 @@
       });
     }
 
+    // Insights Modal Logic
+    function openInsightsModal() {
+      playKeyClick();
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const monthExpenses = expenses.filter(e => e.timestamp.startsWith(currentMonth));
+      const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+      document.getElementById('insightsMonthTotal').innerText = `$${total.toLocaleString()}`;
+      document.getElementById('insightsMonthCount').innerText = `${monthExpenses.length}`;
+
+      const catMap = {};
+      monthExpenses.forEach(e => {
+        catMap[e.categoryLabel] = (catMap[e.categoryLabel] || 0) + e.amount;
+      });
+
+      const container = document.getElementById('insightsBreakdown');
+      if (monthExpenses.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">No records for this month yet.</div>`;
+      } else {
+        container.innerHTML = Object.entries(catMap)
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, amt]) => {
+            const pct = total > 0 ? ((amt / total) * 100).toFixed(1) : 0;
+            return `
+              <div class="glass-panel p-2.5 rounded-xl border border-white/5">
+                <div class="flex justify-between items-center text-xs mb-1.5">
+                  <span class="font-semibold text-slate-300">${label}</span>
+                  <span class="font-mono font-bold text-white">$${amt.toLocaleString()} <span class="text-slate-400 font-normal text-[11px]">(${pct}%)</span></span>
+                </div>
+                <div class="h-1.5 w-full bg-surface-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full" style="width: ${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+      }
+
+      const modal = document.getElementById('insightsModal');
+      const panel = document.getElementById('insightsPanel');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100');
+      panel.classList.remove('translate-y-full');
+      panel.classList.add('translate-y-0');
+    }
+
+    function closeInsightsModal() {
+      playKeyClick();
+      const modal = document.getElementById('insightsModal');
+      const panel = document.getElementById('insightsPanel');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100');
+      panel.classList.add('translate-y-full');
+      panel.classList.remove('translate-y-0');
+    }
+
+    // Google Sheets Sync Logic
+    function openSyncModal() {
+      playKeyClick();
+      document.getElementById('webhookUrlInput').value = gasWebhookUrl;
+      const pendingCount = expenses.filter(e => !e.synced).length;
+      document.getElementById('modalPendingCount').innerText = pendingCount;
+      document.getElementById('modalSyncState').innerText = gasWebhookUrl ? "Connected" : "Local Only";
+
+      const modal = document.getElementById('syncModal');
+      const panel = document.getElementById('syncPanel');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100');
+      panel.classList.remove('translate-y-full');
+      panel.classList.add('translate-y-0');
+    }
+
+    function closeSyncModal() {
+      playKeyClick();
+      const modal = document.getElementById('syncModal');
+      const panel = document.getElementById('syncPanel');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100');
+      panel.classList.add('translate-y-full');
+      panel.classList.remove('translate-y-0');
+    }
+
+    function saveWebhookUrl() {
+      const val = document.getElementById('webhookUrlInput').value.trim();
+      gasWebhookUrl = val;
+      localStorage.setItem('quickspend_webhook_url', val);
+      updatePendingBadge();
+      showToast("Webhook URL saved!");
+      closeSyncModal();
+    }
+
+    function updatePendingBadge() {
+      const pendingCount = expenses.filter(e => !e.synced).length;
+      const cloudBtn = document.getElementById('cloudBtn');
+      const cloudIcon = document.getElementById('cloudIcon');
+      const statusText = document.getElementById('cloudStatusText');
+      const pendingInd = document.getElementById('pendingIndicator');
+
+      if (!gasWebhookUrl) {
+        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-surface-800 text-slate-400';
+        cloudIcon.innerText = '☁️';
+        statusText.innerText = 'Offline';
+        pendingInd.classList.add('hidden');
+        return;
+      }
+
+      if (pendingCount > 0) {
+        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-300';
+        cloudIcon.innerText = '⏳';
+        statusText.innerText = `${pendingCount}`;
+        pendingInd.innerText = `• ${pendingCount} pending`;
+        pendingInd.classList.remove('hidden');
+      } else {
+        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+        cloudIcon.innerText = '☁️';
+        statusText.innerText = 'Synced';
+        pendingInd.classList.add('hidden');
+      }
+    }
+
+    function checkAndAutoSyncDaily() {
+      if (!gasWebhookUrl) return;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const olderPending = expenses.filter(e => !e.synced && !e.timestamp.startsWith(todayStr));
+
+      if (olderPending.length > 0) {
+        triggerBatchSync(false, olderPending);
+      }
+    }
+
+    async function triggerBatchSync(syncAll = false, targetItems = null) {
+      if (!gasWebhookUrl) {
+        showToast("Set up Webhook URL first");
+        openSyncModal();
+        return;
+      }
+
+      const itemsToSync = targetItems || (syncAll ? expenses.filter(e => !e.synced) : []);
+
+      if (itemsToSync.length === 0) {
+        showToast("All records already synced ✨");
+        return;
+      }
+
+      showToast(`Syncing ${itemsToSync.length} items...`);
+
+      try {
+        const response = await fetch(gasWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ items: itemsToSync })
+        });
+
+        const result = await response.json();
+        if (result.status === "success") {
+          const syncedIds = new Set(itemsToSync.map(i => i.id));
+          expenses = expenses.map(e => syncedIds.has(e.id) ? { ...e, synced: true } : e);
+          saveToStorage();
+          updatePendingBadge();
+          updateHistoryUI();
+          showToast(`🎉 Synced ${itemsToSync.length} items to Sheets!`);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("⚠️ Sync failed, records kept safe locally");
+      }
+    }
+
+    // Storage and Export Helpers
     function saveToStorage() {
       try {
         localStorage.setItem('quickspend_logs', JSON.stringify(expenses));
       } catch (e) {
-        console.error("Local storage error:", e);
+        console.error("Storage error:", e);
       }
     }
 
@@ -637,15 +829,15 @@
 
     function exportToCsv() {
       if (expenses.length === 0) {
-        showToast("Nothing to export yet!");
+        showToast("Nothing to export!");
         return;
       }
-      let csvContent = "data:text/csv;charset=utf-8,ID,Timestamp,Date,Time,Category,Amount,Memo\n";
+      let csvContent = "data:text/csv;charset=utf-8,ID,Timestamp,Date,Time,Category,Amount,Memo,Synced\n";
       expenses.forEach(row => {
         const d = new Date(row.timestamp);
         const date = d.toISOString().split('T')[0];
         const time = d.toTimeString().split(' ')[0];
-        csvContent += `"${row.id}","${row.timestamp}","${date}","${time}","${row.categoryLabel}",${row.amount},"${(row.memo || '').replace(/"/g, '""')}"\n`;
+        csvContent += `"${row.id}","${row.timestamp}","${date}","${time}","${row.categoryLabel}",${row.amount},"${(row.memo || '').replace(/"/g, '""')}",${row.synced || false}\n`;
       });
 
       const encodedUri = encodeURI(csvContent);
@@ -655,7 +847,7 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showToast("CSV Downloaded!");
+      showToast("CSV Exported!");
     }
 
     function copyForGoogleSheets() {
@@ -663,7 +855,6 @@
         showToast("No data to copy!");
         return;
       }
-      // Tab-delimited formatting for instant paste into Google Sheets columns
       let tsv = "Date\tTime\tCategory\tAmount\tMemo\n";
       expenses.forEach(row => {
         const d = new Date(row.timestamp);
@@ -672,7 +863,6 @@
         tsv += `${date}\t${time}\t${row.categoryLabel}\t${row.amount}\t${row.memo || ''}\n`;
       });
 
-      // Safe clipboard fallback
       const textarea = document.createElement('textarea');
       textarea.value = tsv;
       document.body.appendChild(textarea);
@@ -680,7 +870,7 @@
       document.execCommand('copy');
       document.body.removeChild(textarea);
 
-      showToast("Copied! Paste directly into Google Sheets 📋");
+      showToast("Copied to clipboard 📋");
     }
 
     function clearHistoryPrompt() {
@@ -688,6 +878,7 @@
       expenses = [];
       saveToStorage();
       updateHistoryUI();
+      updatePendingBadge();
       showToast("All logs cleared!");
     }
 
@@ -702,15 +893,10 @@
       }, 2000);
     }
 
-    function dismissPwaBanner() {
-      document.getElementById('pwaBanner').style.display = 'none';
-    }
-
     // Keyboard support for testing on laptop
     window.addEventListener('keydown', (e) => {
-      if (document.activeElement.id === 'memoInput') return;
+      if (document.activeElement.id === 'memoInput' || document.activeElement.id === 'webhookUrlInput') return;
       if (e.key >= '0' && e.key <= '9') pressKey(e.key);
-      else if (e.key === '.') pressKey('.');
       else if (e.key === 'Backspace') pressBackspace();
       else if (e.key === 'Enter') commitExpense();
     });
@@ -720,6 +906,8 @@
       renderCategories();
       updateDisplay();
       updateHistoryUI();
+      updatePendingBadge();
+      checkAndAutoSyncDaily();
     };
   </script>
 </body>
