@@ -971,14 +971,20 @@
         return;
       }
 
+      // 1. 鎖定同步狀態與按鈕視覺，防止狂按
       isSyncing = true;
+      const cloudBtn = document.getElementById('cloudBtn');
       const cloudIcon = document.getElementById('cloudIcon');
       const statusText = document.getElementById('cloudStatusText');
+
+      cloudBtn.style.pointerEvents = 'none'; // 禁用點擊
+      cloudBtn.classList.add('opacity-50');  // 變半透明
       cloudIcon.innerText = '🔄';
+      cloudIcon.classList.add('animate-spin'); // 加入旋轉動畫
       statusText.innerText = 'Syncing...';
 
       const payloadItems = itemsToSync.map(item => ({
-        id: item.id,
+        id: item.id, 
         date: item.date || item.timestamp.split('T')[0],
         amount: item.amount,
         category: item.category || `${item.categoryIcon} ${item.categoryLabel}`,
@@ -997,15 +1003,19 @@
           const syncedIds = new Set(itemsToSync.map(i => i.id));
           expenses = expenses.map(e => syncedIds.has(e.id) ? { ...e, synced: true } : e);
           saveToStorage();
-          updatePendingBadge();
-          updateHistoryUI();
           if (!isSilent) showToast(`🎉 Synced ${itemsToSync.length} items!`);
         }
       } catch (err) {
         console.error("Sync error:", err);
-        updatePendingBadge();
+        if (!isSilent) showToast("Sync failed. Try again later. ❌");
       } finally {
+        // 2. 解除鎖定與動畫，並恢復 UI 狀態
         isSyncing = false;
+        cloudBtn.style.pointerEvents = 'auto';
+        cloudBtn.classList.remove('opacity-50');
+        cloudIcon.classList.remove('animate-spin');
+        updatePendingBadge(); 
+        updateHistoryUI();
       }
     }
 
