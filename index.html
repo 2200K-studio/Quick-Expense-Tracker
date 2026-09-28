@@ -77,6 +77,27 @@
     .glow-emerald {
       box-shadow: 0 0 24px -4px rgba(16, 185, 129, 0.45);
     }
+
+    /* Cloud Sync 按鈕長按充能動畫 */
+    #cloudBtn {
+      position: relative;
+      overflow: hidden;
+      -webkit-touch-callout: none;
+    }
+    #cloudBtnProgress {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0%;
+      background: rgba(6, 182, 212, 0.35); /* 青色半透明填滿條 */
+      pointer-events: none;
+      transition: width 0.6s cubic-bezier(0.1, 0.7, 0.1, 1);
+    }
+    #cloudBtn.pressing #cloudBtnProgress {
+      width: 100%;
+    }
+
   </style>
 </head>
 <body class="text-slate-100 flex justify-center min-h-screen antialiased bg-[#0c0f17]">
@@ -93,9 +114,11 @@
 
       <div class="flex items-center gap-1.5">
         <!-- Cloud Sync Button -->
-        <button id="cloudBtn" onclick="openSyncModal()" class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-surface-800 text-slate-300 hover:text-white transition-all">
-          <span id="cloudIcon">☁️</span>
-          <span id="cloudStatusText" class="font-mono text-[11px]">Sync</span>
+        <!-- Cloud Sync Button (單擊同步 / 長按 0.6s 設定) -->
+        <button id="cloudBtn" class="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-surface-800 text-slate-300 transition-all select-none">
+          <div id="cloudBtnProgress"></div>
+          <span id="cloudIcon" class="relative z-10">☁️</span>
+          <span id="cloudStatusText" class="font-mono text-[11px] relative z-10">Sync</span>
         </button>
 
         <!-- Insights Button -->
@@ -161,7 +184,7 @@
     <section class="mb-2">
       <div class="flex items-center justify-between mb-1.5 px-1">
         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">1-Tap Category</span>
-        <span class="text-[10px] text-cyan-400/80 italic font-mono">Instant Log Active ⚡</span>
+        <span class="text-[10px] text-cyan-400/80 italic font-mono">Instant Log Active</span>
       </div>
 
       <div id="categoryContainer" class="flex gap-2 overflow-x-auto pill-scroll pb-1">
@@ -206,7 +229,7 @@
 
       <button id="submitBtn" onclick="commitExpense()" 
               class="keypad-btn col-span-3 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-extrabold rounded-xl py-3.5 flex items-center justify-center gap-2 glow-emerald tracking-wide">
-        <span class="text-base">⚡ RECORD</span>
+        <span class="text-base">RECORD</span>
         <span id="submitAmountSnippet" class="text-sm font-mono opacity-80">($0)</span>
       </button>
     </div>
@@ -691,77 +714,101 @@
       await fetchInsightsData();
     }
 
+    // 渲染 Insight 畫面
+    function renderInsightsUI(data) {
+      document.getElementById('insightsExpense').innerText = `-$${data.expense.toLocaleString()}`;
+      document.getElementById('insightsDaily').innerText = `Avg: $${data.dailyAvg.toLocaleString()} / day`;
+      document.getElementById('insightsIncome').innerText = `+$${data.income.toLocaleString()}`;
+      
+      const netEl = document.getElementById('insightsNet');
+      netEl.innerText = `${data.net >= 0 ? '+' : ''}$${data.net.toLocaleString()}`;
+      netEl.className = `text-2xl font-bold font-mono mt-1 ${data.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      // 渲染 Breakdown
+      const breakdownContainer = document.getElementById('insightsBreakdown');
+      if (!data.breakdown || Object.keys(data.breakdown).length === 0) {
+        breakdownContainer.innerHTML = `<div class="text-xs text-slate-500 pl-1">No expenses yet.</div>`;
+      } else {
+        breakdownContainer.innerHTML = Object.entries(data.breakdown)
+          .sort((a, b) => b[1] - a[1])
+          .map(([label, amt]) => {
+            const pct = data.expense > 0 ? ((amt / data.expense) * 100).toFixed(1) : 0;
+            return `
+              <div class="glass-panel p-2 rounded-lg border border-white/5 transition-all duration-300">
+                <div class="flex justify-between items-center text-[11px] mb-1">
+                  <span class="font-semibold text-slate-300">${label}</span>
+                  <span class="font-mono font-bold text-white">-$${amt.toLocaleString()} <span class="text-slate-400 font-normal text-[10px]">(${pct}%)</span></span>
+                </div>
+                <div class="h-1 w-full bg-surface-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full" style="width: ${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+      }
+
+      // 渲染 Top 5
+      const topContainer = document.getElementById('insightsTopSpends');
+      if (!data.topSpends || data.topSpends.length === 0) {
+        topContainer.innerHTML = `<div class="text-xs text-slate-500 pl-1">No expenses yet.</div>`;
+      } else {
+        topContainer.innerHTML = data.topSpends.map(item => `
+          <div class="flex justify-between items-center p-2 rounded-lg bg-surface-800 border border-white/5 transition-all duration-300">
+            <div class="flex flex-col truncate pr-2">
+              <span class="text-xs font-bold text-slate-200">${item.cat}</span>
+              <span class="text-[10px] text-slate-400 truncate mt-0.5">${item.memo ? item.memo : 'No memo'}</span>
+            </div>
+            <span class="text-sm font-mono font-bold text-rose-400 flex-shrink-0">-$${item.amount.toLocaleString()}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    // SWR 機制：先看快取，背景更新
     async function fetchInsightsData() {
       if (!gasWebhookUrl) {
         document.getElementById('insightsBreakdown').innerHTML = `<div class="text-center py-4 text-xs text-slate-500">Please setup Sync first! ☁️</div>`;
         return;
       }
 
-      // 產生日期標籤 (例: Sep 2026) 與 Query String (例: 2026-09)
       const options = { month: 'short', year: 'numeric' };
       document.getElementById('insightMonthLabel').innerText = currentInsightDate.toLocaleDateString('en-US', options);
       
       const y = currentInsightDate.getFullYear();
       const m = String(currentInsightDate.getMonth() + 1).padStart(2, '0');
       const targetMonth = `${y}-${m}`;
+      const cacheKey = `quickspend_insight_${targetMonth}`;
 
-      document.getElementById('insightsBreakdown').innerHTML = `<div class="text-center py-4 text-xs text-cyan-400 animate-pulse">Fetching data... 🔄</div>`;
-      document.getElementById('insightsTopSpends').innerHTML = '';
+      // 1. SWR 第一步：檢查快取，有的話 0 秒秒秀
+      const cached = localStorage.getItem(cacheKey);
+      let hasCache = false;
+      if (cached) {
+        try {
+          const cachedData = JSON.parse(cached);
+          renderInsightsUI(cachedData);
+          hasCache = true;
+        } catch(e) {}
+      }
 
+      // 如果完全沒有快取，才顯示 loading 動畫
+      if (!hasCache) {
+        document.getElementById('insightsBreakdown').innerHTML = `<div class="text-center py-4 text-xs text-cyan-400 animate-pulse">Fetching data... 🔄</div>`;
+        document.getElementById('insightsTopSpends').innerHTML = '';
+      }
+
+      // 2. SWR 第二步：背景靜默向 GAS 請求最新資料
       try {
         const url = `${gasWebhookUrl}?month=${targetMonth}`;
         const res = await fetch(url, { redirect: 'follow' });
         const data = await res.json();
         
-        // 更新顯示（加上負號）
-        document.getElementById('insightsExpense').innerText = `-$${data.expense.toLocaleString()}`;
-        document.getElementById('insightsDaily').innerText = `Avg: $${data.dailyAvg.toLocaleString()} / day`;
-        document.getElementById('insightsIncome').innerText = `+$${data.income.toLocaleString()}`;
-        
-        const netEl = document.getElementById('insightsNet');
-        netEl.innerText = `${data.net >= 0 ? '+' : ''}$${data.net.toLocaleString()}`;
-        netEl.className = `text-2xl font-bold font-mono mt-1 ${data.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`; // 賺錢顯示綠色，透支顯示紅色
-
-        // 渲染 Breakdown
-        const breakdownContainer = document.getElementById('insightsBreakdown');
-        if (Object.keys(data.breakdown).length === 0) {
-          breakdownContainer.innerHTML = `<div class="text-xs text-slate-500 pl-1">No expenses yet.</div>`;
-        } else {
-          breakdownContainer.innerHTML = Object.entries(data.breakdown)
-            .sort((a, b) => b[1] - a[1])
-            .map(([label, amt]) => {
-              const pct = data.expense > 0 ? ((amt / data.expense) * 100).toFixed(1) : 0;
-              return `
-                <div class="glass-panel p-2 rounded-lg border border-white/5">
-                  <div class="flex justify-between items-center text-[11px] mb-1">
-                    <span class="font-semibold text-slate-300">${label}</span>
-                    <span class="font-mono font-bold text-white">-$${amt.toLocaleString()} <span class="text-slate-400 font-normal text-[10px]">(${pct}%)</span></span>
-                  </div>
-                  <div class="h-1 w-full bg-surface-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full" style="width: ${pct}%"></div>
-                  </div>
-                </div>
-              `;
-            }).join('');
-        }
-
-        // 渲染 Top 5
-        const topContainer = document.getElementById('insightsTopSpends');
-        if (data.topSpends.length === 0) {
-          topContainer.innerHTML = `<div class="text-xs text-slate-500 pl-1">No expenses yet.</div>`;
-        } else {
-          topContainer.innerHTML = data.topSpends.map(item => `
-            <div class="flex justify-between items-center p-2 rounded-lg bg-surface-800 border border-white/5">
-              <div class="flex flex-col truncate pr-2">
-                <span class="text-xs font-bold text-slate-200">${item.cat}</span>
-                <span class="text-[10px] text-slate-400 truncate mt-0.5">${item.memo ? item.memo : 'No memo'}</span>
-              </div>
-              <span class="text-sm font-mono font-bold text-rose-400 flex-shrink-0">-$${item.amount.toLocaleString()}</span>
-            </div>
-          `).join('');
-        }
+        // 3. SWR 第三步：背景資料抵達，靜默更新畫面並存入快取
+        renderInsightsUI(data);
+        localStorage.setItem(cacheKey, JSON.stringify(data));
       } catch (err) {
-        document.getElementById('insightsBreakdown').innerHTML = `<div class="text-xs text-rose-400 pl-1">Failed to fetch data.</div>`;
+        if (!hasCache) {
+          document.getElementById('insightsBreakdown').innerHTML = `<div class="text-xs text-rose-400 pl-1">Failed to fetch data.</div>`;
+        }
       }
     }
 
@@ -801,6 +848,72 @@
       panel.classList.remove('translate-y-0');
     }
 
+    // Cloud Sync 按鈕事件監聽（長按與單擊分流）
+    let pressTimer = null;
+    let isLongPress = false;
+
+    function initCloudButtonListeners() {
+      const btn = document.getElementById('cloudBtn');
+      if (!btn) return;
+
+      const startPress = (e) => {
+        isLongPress = false;
+        btn.classList.add('pressing');
+        pressTimer = setTimeout(() => {
+          isLongPress = true;
+          btn.classList.remove('pressing');
+          if (navigator.vibrate) navigator.vibrate(40); // 手機短震動反饋
+          openSyncModal();
+        }, 600); // 長按 600 毫秒觸發
+      };
+
+      const cancelPress = (e) => {
+        clearTimeout(pressTimer);
+        btn.classList.remove('pressing');
+      };
+
+      const handleEnd = (e) => {
+        clearTimeout(pressTimer);
+        btn.classList.remove('pressing');
+
+        // 如果不是長按，就觸發單擊行為
+        if (!isLongPress) {
+          if (!gasWebhookUrl) {
+            openSyncModal();
+          } else {
+            triggerBatchSync(true); // 原地單擊一鍵同步！
+          }
+        }
+        isLongPress = false;
+      };
+
+      // 手機觸控事件
+      btn.addEventListener('touchstart', startPress, { passive: true });
+      btn.addEventListener('touchend', handleEnd);
+      btn.addEventListener('touchcancel', cancelPress);
+
+      // 電腦滑鼠事件兼容
+      btn.addEventListener('mousedown', startPress);
+      btn.addEventListener('mouseup', handleEnd);
+      btn.addEventListener('mouseleave', cancelPress);
+    }
+
+    // 視窗喚醒背景自動同步 (Page Visibility API)
+    let isSyncing = false; // 防止重複併發請求
+
+    function initVisibilitySync() {
+      document.addEventListener('visibilitychange', () => {
+        // 當使用者切回該頁面（由後台變為前台）
+        if (document.visibilityState === 'visible') {
+          const pendingItems = expenses.filter(e => !e.synced);
+          // 若有待同步紀錄且當前沒有正在同步中
+          if (pendingItems.length > 0 && !isSyncing && gasWebhookUrl) {
+            triggerBatchSync(false, pendingItems, true); // 第三個參數代表靜默背景同步
+          }
+        }
+      });
+    }
+
     function saveWebhookUrl() {
       const val = document.getElementById('webhookUrlInput').value.trim();
       gasWebhookUrl = val;
@@ -818,7 +931,7 @@
       const pendingInd = document.getElementById('pendingIndicator');
 
       if (!gasWebhookUrl) {
-        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-surface-800 text-slate-400';
+        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-surface-800 text-slate-400 select-none';
         cloudIcon.innerText = '☁️';
         statusText.innerText = 'Offline';
         pendingInd.classList.add('hidden');
@@ -826,13 +939,13 @@
       }
 
       if (pendingCount > 0) {
-        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-300';
+        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-amber-500/40 bg-amber-500/10 text-amber-300 select-none shadow-[0_0_12px_rgba(245,158,11,0.2)]';
         cloudIcon.innerText = '⏳';
-        statusText.innerText = `${pendingCount}`;
+        statusText.innerText = `${pendingCount} Sync`;
         pendingInd.innerText = `• ${pendingCount} pending`;
         pendingInd.classList.remove('hidden');
       } else {
-        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+        cloudBtn.className = 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 select-none';
         cloudIcon.innerText = '☁️';
         statusText.innerText = 'Synced';
         pendingInd.classList.add('hidden');
@@ -849,21 +962,20 @@
       }
     }
 
-    async function triggerBatchSync(syncAll = false, targetItems = null) {
-      if (!gasWebhookUrl) {
-        showToast("Set up Webhook URL first");
-        openSyncModal();
-        return;
-      }
+    async function triggerBatchSync(syncAll = false, targetItems = null, isSilent = false) {
+      if (!gasWebhookUrl || isSyncing) return;
 
       const itemsToSync = targetItems || (syncAll ? expenses.filter(e => !e.synced) : []);
-
       if (itemsToSync.length === 0) {
-        showToast("All records already synced ✨");
+        if (!isSilent) showToast("All records already synced ✨");
         return;
       }
 
-      showToast(`Syncing ${itemsToSync.length} items...`);
+      isSyncing = true;
+      const cloudIcon = document.getElementById('cloudIcon');
+      const statusText = document.getElementById('cloudStatusText');
+      cloudIcon.innerText = '🔄';
+      statusText.innerText = 'Syncing...';
 
       const payloadItems = itemsToSync.map(item => ({
         id: item.id,
@@ -887,11 +999,13 @@
           saveToStorage();
           updatePendingBadge();
           updateHistoryUI();
-          showToast(`🎉 Synced ${itemsToSync.length} items to Sheets!`);
+          if (!isSilent) showToast(`🎉 Synced ${itemsToSync.length} items!`);
         }
       } catch (err) {
-        console.error(err);
-        showToast("⚠️ Sync failed, records kept safe locally");
+        console.error("Sync error:", err);
+        updatePendingBadge();
+      } finally {
+        isSyncing = false;
       }
     }
 
@@ -994,6 +1108,8 @@
       updateHistoryUI();
       updatePendingBadge();
       checkAndAutoSyncDaily();
+      initCloudButtonListeners(); // 註冊長按/單擊監聽
+      initVisibilitySync(); // ✨ 啟動切換頁面背景喚醒同步
     };
   </script>
 </body>
